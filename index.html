@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link href="https://fonts.googleapis.com/css?family=Roboto:100,300,400,500,700,900" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@6.x/css/materialdesignicons.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/@mdi/font@6.x/css/materialdesignicons.min.css" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, minimal-ui">
+</head>
+<body>
+  <div id="app">
+    <v-app>
+      <v-main>
+        <v-container fluid>
+          <header class="d-flex justify-center pa-4">
+            <h1>Welcome to Mum's Deals Page!</h1>
+          </header>
+          <v-divider/>
+        </v-container>
+        <div class="d-flex main-page">
+          <v-navigation-drawer permanent>
+            <v-list-item>
+              <v-list-item-content>
+                <v-list-item-title class="text-center">
+                  Filter results
+                </v-list-item-title>
+              </v-list-item-content>
+            </v-list-item>
+            <v-list
+              dense
+              nav
+            >
+              <v-list-item-title>
+              Product type
+              </v-list-item-title>
+              <v-list-item
+                v-for="type in types"
+                :key="type"
+                link
+              >
+                <v-checkbox
+                  :label="type"
+                  v-model="typeSelected"
+                  :value="type"
+                />
+              </v-list-item>
+              <v-list-item-title>
+                Price range
+              </v-list-item-title>
+              <v-slider
+                :max="max"
+                :min="min"
+                v-model="price"
+              >
+                <template v-slot:prepend>
+                  Min
+                </template>
+                <template v-slot:append>
+                  Max
+                </template>
+              </v-slider>
+            </v-list>
+          </v-navigation-drawer>
+          <v-container fluid>
+            <div class="sub-header d-flex justify-space-between align-center">
+              <div>Available deals: {{showItems.length}}</div>
+              <div class="d-flex align-center">
+                <div @click="fullWidth = false" style="cursor: pointer;">
+                  <v-icon class="mx-1">mdi-microsoft</v-icon>
+                </div>
+                <div @click="fullWidth = true" style="cursor: pointer;">
+                  <v-icon class="ml-1 mr-6">mdi-format-list-checkbox</v-icon>
+                </div>
+                <div class="d-flex align-center ml-6">
+                  <span class="mr-2">Sort results:</span>
+                  <v-select
+                    :items="sortOptions"
+                    v-model="sortSelected"
+                  ></v-select>
+                </div>
+              </div>
+            </div>
+            <v-row>
+              <v-col
+                v-for="item in showItems"
+                :key="item.id"
+                class="product pa-5"
+                :class="{'product-full-width': fullWidth}"
+                cols="12"
+                :md="fullWidth ? 12 : 4"
+              >
+              <div>
+                <img :src="item.images[0].src" alt="" class="product-img" :class="{'img-full': fullWidth}">
+              </div>
+              <div :class="{'description': fullWidth}">
+                <p class="product-option" :class="{'option-grid': !fullWidth}">{{item.title}}</p>
+                <p class="product-option" :class="{'option-grid': !fullWidth}">{{item.product_type}}</p>
+                <p class="product-option" :class="{'option-grid': !fullWidth}">Quantity sold: {{item.quantitySold}}</p>
+              </div>
+              </v-col>
+            </v-row>
+          </v-container>
+        </div>
+      </v-main>
+    </v-app>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.x/dist/vue.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/vuetify@2.x/dist/vuetify.js"></script>
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <script>
+    new Vue({
+      el: '#app',
+      vuetify: new Vuetify(),
+      data () {
+        return {
+          items: [],
+          showItems: [],
+          types: [],
+          fullWidth: false,
+          typeSelected: [],
+          price: 0,
+          min: 0,
+          max: 0,
+          sortSelected: '',
+          sortOptions: [
+            '',
+            'A-Z',
+            'High to Low',
+            'Low to High'
+          ]
+        }
+      },
+      async created () {
+        await this.getProducts()
+      },
+      watch: {
+        typeSelected () {
+          if (!this.typeSelected.length) {
+            this.showItems = this.items  
+          } else {
+            this.showItems = this.items.filter(item => this.typeSelected.includes(item.product_type))
+          }
+        },
+        price () {
+          if (this.price === this.min) {
+            this.showItems = this.items  
+          } else {
+            this.showItems = this.items.filter((item) => {
+              let isOnRange = false
+              item.variants.forEach((variant, i) => {
+                if (parseInt(variant.price) <= this.price) isOnRange = true
+              })
+              return isOnRange
+            })
+          }
+        },
+        sortSelected () {
+          if (this.sortSelected === '') {
+            this.showItems = this.items
+          } else if (this.sortSelected === 'A-Z') {
+            this.showItems = this.showItems.sort((a, b) => a.title.localeCompare(b.title))
+          } else if (this.sortSelected === 'High to Low') {
+            this.showItems = this.showItems.sort((a, b) => b.maxPrice - a.maxPrice)
+          } else if (this.sortSelected === 'Low to High') {
+            this.showItems = this.showItems.sort((a, b) => a.maxPrice - b.maxPrice)
+          }
+        }
+      },
+      methods: {
+        getProducts () {
+          const config = {
+            headers: {
+              secretKey: '1DIPIkKeq8'
+            }
+          }
+          axios.get('https://kabsa.yallababy.com/api/v1/products/best-selling-products-by-subcategory', config).then(({ data }) => {
+            this.items = data
+            let min = 0
+            let max = 0
+            this.items.forEach(item => {
+              let maxPrice = 0
+              item.variants.forEach(variant => {
+                if (parseInt(variant.price) > max) max = parseInt(variant.price)
+                if (parseInt(variant.price) < min || min === 0) min = parseInt(variant.price)
+                if (parseInt(variant.price) > maxPrice) maxPrice = parseInt(variant.price)
+              })
+              item.maxPrice = maxPrice
+            })
+            this.showItems = data
+            this.types = new Set(this.items.map(item => item.product_type))
+            this.min = min
+            this.max = max
+            this.price = min
+          })
+        }
+      }
+    })
+  </script>
+</body>
+<style>
+  .main-page {
+    height: 100%;
+  }
+  .sub-header {
+    height: 60px;
+    border-bottom: 1px solid #d5d5d5;
+  }
+  .product {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .product-img {
+    width: 100px;
+    height: 100px;
+  }
+  .img-full {
+    width: 200px;
+    height: 200px;
+    margin-right: 30px;
+  }
+  .product-option {
+    text-align: center;
+  }
+  .option-grid {
+    width: 250px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;  
+  }
+  .product-full-width {
+    flex-direction: row;
+    justify-content: center;
+    border-bottom: 1px solid lightgrey;
+  }
+  .description {
+    width: 400px;
+  }
+  .v-application p {
+    margin-bottom: 0;
+  }
+</style>
+</html>
